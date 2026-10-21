@@ -2,6 +2,7 @@
 <html lang="cs">
 <head>
 <meta charset="utf-8">
+<meta name="velin-version" content="2026-10-21 08:52">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#292929">
 <link rel="manifest" href="manifest.webmanifest">
@@ -811,6 +812,13 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
 .br-box.try{background:var(--ok-bg);border-color:var(--ok-line)}
 .br-box ul{margin:6px 0 0;padding-left:18px}
 .br-list{display:flex;flex-direction:column;gap:14px}
+
+/* aktualizace aplikace */
+.upd-bar{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;background:#292929;color:#fff;border-radius:16px;padding:10px 10px 10px 16px;box-shadow:0 18px 40px -12px rgba(0,0,0,.55);font-size:14.5px;max-width:calc(100% - 32px);animation:pfIn .35s var(--ease)}
+.upd-bar b{color:#B8F27A}
+@media (max-width:900px){.upd-bar{bottom:calc(84px + env(safe-area-inset-bottom))}}
+.app-ver{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);font-size:12.5px;color:var(--muted)}
+.app-ver .linkbtn{font-size:12.5px}
 </style>
 </head>
 <body>
@@ -1883,6 +1891,33 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
     $("#syncGo").addEventListener("click", function(){ syncNow(); });
     $("#syncOff").addEventListener("click", function(){ syncKey = ""; lsSet(SKEY, ""); lsSet(RVKEY, ""); setSync("off"); renderSync(); toast("Zařízení odpojeno. Data v něm zůstala."); });
   }
+
+  /* ---------- aktualizace aplikace: ověří, jestli na webu není novější verze */
+  var APP_VER = ((document.querySelector('meta[name="velin-version"]') || {}).content) || "", updAt = 0;
+  try { var qu = new URLSearchParams(location.search); if (qu.has("u")) history.replaceState(null, "", location.pathname + location.hash); } catch(e) {}
+  function verLabel(v){ var m = /^(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d)$/.exec(v || ""); return m ? (+m[3]) + ". " + (+m[2]) + ". " + m[1] + " " + (+m[4]) + ":" + m[5] : (v || "lokální soubor"); }
+  function checkUpdate(manual){
+    if (!APP_VER || location.protocol === "file:") { if (manual) toast("Tahle kopie se aktualizuje jen z webové adresy"); return; }
+    if (!manual && Date.now() - updAt < 10 * 6e4) return;
+    updAt = Date.now();
+    fetchT("./?v=" + Date.now(), 10000, {cache: "no-store"}).then(function(r){ return r.text(); }).then(function(t){
+      var m = t.match(/name="velin-version" content="([^"]+)"/), nv = m && m[1];
+      if (nv && nv > APP_VER) showUpd(); else if (manual) toast("Máš nejnovější verzi");
+    }).catch(function(){ if (manual) toast("Teď to nejde ověřit. Jsi online?"); });
+  }
+  function showUpd(){
+    if ($("#updBar")) return;
+    var d = document.createElement("div"); d.id = "updBar"; d.className = "upd-bar"; d.setAttribute("role", "status");
+    d.innerHTML = '<span><b>Je tu nová verze portálu.</b> Tvoje data zůstanou.</span><button class="btn primary small" type="button">Aktualizovat</button>';
+    document.body.appendChild(d);
+    d.querySelector("button").addEventListener("click", applyUpdate);
+  }
+  function applyUpdate(){
+    var go = function(){ location.replace(location.pathname + "?u=" + Date.now() + location.hash); };
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) navigator.serviceWorker.getRegistration().then(function(r){ return r ? r.update() : null; }).then(go, go); else go();
+  }
+  document.addEventListener("visibilitychange", function(){ if (document.visibilityState === "visible") checkUpdate(false); });
+  setTimeout(function(){ checkUpdate(false); }, 4000);
   var installEvt = null;
   var isStandalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -1890,6 +1925,11 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
   window.addEventListener("appinstalled", function(){ installEvt = null; toast("Nainstalováno"); renderApp(); });
   function renderApp(){
     var box = $("#appBox"); if (!box) return;
+    renderAppInner(box);
+    box.insertAdjacentHTML("beforeend", '<div class="app-ver"><span>Verze ' + verLabel(APP_VER) + '</span><button class="linkbtn" type="button" id="updCheck">Zkontrolovat aktualizaci</button></div>');
+    $("#updCheck").addEventListener("click", function(){ checkUpdate(true); });
+  }
+  function renderAppInner(box){
     if (isStandalone) { box.innerHTML = '<p class="small" style="margin:0"><b style="color:var(--ok)">✓ Běží jako aplikace.</b></p>'; return; }
     if (location.protocol === "file:") { box.innerHTML = '<p class="small muted" style="margin:0">Jako aplikaci si portál nainstaluješ z jeho webové adresy.</p>'; return; }
     if (installEvt) {
