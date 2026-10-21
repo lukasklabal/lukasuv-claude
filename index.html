@@ -795,6 +795,22 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
 .sync-pair input{flex:1;min-width:0;font-size:14px;padding:8px 10px;text-transform:uppercase;letter-spacing:.04em}
 .sync-off{display:block;margin-top:10px;font-size:12.5px;color:var(--muted)}
 .user-icon .dot.warn{background:var(--amber)}
+
+/* ranní briefing */
+.brief{border:1.5px solid var(--line-strong);background:linear-gradient(160deg,var(--surface),var(--soft))}
+.br-hl{margin:6px 0 4px;font-size:21px;line-height:1.3}
+.br-items{margin:10px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:12px}
+.br-items li::marker{font-weight:800;color:var(--azure-dark)}
+.br-t{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.br-t a,.br-t{font-weight:700;font-size:16px;color:var(--ink);text-decoration:none}
+.br-t a:hover{color:var(--azure-dark);text-decoration:underline}
+.br-src{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--azure-dark)}
+.br-items p{margin:3px 0 0;font-size:14.5px;color:var(--muted)}
+.br-items .br-why{color:var(--text)}
+.br-box{margin-top:14px;border-radius:14px;padding:12px 14px;background:var(--soft);border:1px solid var(--line);font-size:14.5px}
+.br-box.try{background:var(--ok-bg);border-color:var(--ok-line)}
+.br-box ul{margin:6px 0 0;padding-left:18px}
+.br-list{display:flex;flex-direction:column;gap:14px}
 </style>
 </head>
 <body>
@@ -883,6 +899,8 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
       </div>
     </div>
 
+    <div class="sec anim"><div class="card brief" id="dBrief"></div></div>
+
     <div class="dash-grid sec">
       <div class="card anim lvl-card" id="dLevel"></div>
       <div class="card anim chal" id="dChallenge"></div>
@@ -930,6 +948,16 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
     <div class="rd-status small muted anim" id="rdStatus"></div>
     <div class="rd-list" id="rdList"></div>
     <div class="tip anim sec"><span class="av" aria-hidden="true"></span><div><div class="who">Sparring</div><p>Radar je na rychlý přehled. Ať nečteš všechno: nastav si v Claudovi naplánovanou úlohu „AI radar“ (zadání je v dráze <a href="#agenti">Agenti a automatizace</a>) a sem choď jen pro detail.</p></div></div>
+  </section>
+
+  <!-- ===================================================== RANNÍ BRIEFINGY -->
+  <section class="view" data-view="briefing" hidden>
+    <div class="page-head anim">
+      <div class="eyebrow">Každé ráno od Clauda</div>
+      <h1 class="title">Ranní briefingy.<span class="acc">Co se stalo a co to znamená pro nás.</span></h1>
+      <p class="lead">Naplánovaná úloha Denní AI radar každý všední den ráno projde novinky a vybere nejdůležitější. Tady je archiv za poslední měsíc.</p>
+    </div>
+    <div class="br-list anim" id="brList"></div>
   </section>
 
   <!-- ===================================================== LABORATOŘ ZADÁNÍ -->
@@ -1249,7 +1277,7 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
 
   /* ===================================================================== NAVIGACE */
   var PATH = TRACKS.map(function(t){ return {id:t.id, name:t.name, d:t.d}; });
-  var EXTRA = [{id:"zadani", name:"Laboratoř zadání", ic:"≡"}, {id:"denik", name:"Deník pokroku", ic:"✎"}];
+  var EXTRA = [{id:"briefing", name:"Ranní briefingy", ic:"☀"}, {id:"zadani", name:"Laboratoř zadání", ic:"≡"}, {id:"denik", name:"Deník pokroku", ic:"✎"}];
   var ALL = [{id:"uvod"}, {id:"radar"}].concat(PATH, EXTRA);
   function current(){ var h = (location.hash || "").replace("#", ""); return ALL.some(function(v){ return v.id === h; }) ? h : "uvod"; }
   function nextTrack(){ return TRACKS.filter(function(t){ return trackStats(t).d < t.items.length; })[0] || TRACKS[0]; }
@@ -1288,6 +1316,7 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
     if (cur === "radar") renderRadar(true);
     if (cur === "zadani") renderCheat();
     if (cur === "denik") renderLog();
+    if (cur === "briefing") { renderBriefArchive(); loadBriefs(true); }
     $$(".view").forEach(function(s){ var on = s.getAttribute("data-view") === cur; s.hidden = !on; if (on) animateView(s); });
     renderNav(); refreshButtons(); closeMenu();
     window.scrollTo(0, 0);
@@ -1379,7 +1408,7 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
     $("#dWeek").innerHTML = '<div class="wk-num">Týden ' + cw + ' z 12</div><h3 style="margin:6px 0 6px">' + w.t + '</h3><p style="margin:0 0 4px"><b>Postav:</b> ' + w.b + '</p><p class="small" style="margin:0 0 14px"><a href="' + w.l[1] + '" target="_blank" rel="noopener">Nauč se: ' + w.l[0] + ' ↗</a></p><div class="actions"><a class="btn ghost small" href="#uceni">Celý plán</a>' + (wd ? '<span class="small" style="color:var(--ok);font-weight:700">✓ Týden hotový</span>' : "") + '</div>';
     $("#route").innerHTML = TRACKS.map(function(t, i){ var s = trackStats(t), nx = nextTrack().id === t.id;
       return '<a href="#' + t.id + '" class="' + (s.d === s.n ? "done" : nx ? "next" : "") + '"><span class="num">' + (i + 1) + '</span><span><b>' + t.name + '</b><span class="d">' + t.d + '</span></span><span class="st">' + s.d + '/' + s.n + '</span></a>'; }).join("");
-    renderMiniRadar(); renderRelease();
+    renderMiniRadar(); renderRelease(); renderBrief();
   }
   function openMs(k){
     var m = MS[k];
@@ -1799,6 +1828,7 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
     return rpc("velin_pull", {k: syncKey}).then(function(r){
       pulled = true;
       var need = r && r.data ? mergeDoc(r.data) : true;
+      if (typeof loadBriefs === "function") loadBriefs(false);
       syncRev = (r && r.rev) || 0; lsSet(RVKEY, String(syncRev));
       if (need || dirty) return pushNow();
       setSync("ok");
@@ -1875,6 +1905,71 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
   }
   if (state.touchAll) { var now0 = Date.now(), d0 = syncDoc().items; state.mt = state.mt || {}; Object.keys(d0).forEach(function(k){ state.mt[k] = now0; }); delete state.touchAll; save(); }
   if (syncKey && syncConfigured()) syncNow();
+
+  /* ===================================================================== RANNÍ BRIEFING
+     Naplánovaná úloha „Denní AI radar“ každé ráno uloží briefing do Supabase (velin_brief_put).
+     Portál ho čte se stejným synchronizačním kódem a drží si kopii pro offline. */
+  var BKEY = "lukasuv-brief-v1", briefs = [], briefAt = 0, briefLoading = false;
+  try { briefs = JSON.parse(localStorage.getItem(BKEY) || "[]") || []; } catch(e) { briefs = []; }
+  function safeUrl(u){ return /^https?:\/\//i.test(String(u || "")) ? String(u) : ""; }
+  function loadBriefs(force){
+    if (!syncKey || !syncConfigured() || briefLoading) return;
+    if (!force && Date.now() - briefAt < 5 * 6e4) return;
+    briefLoading = true;
+    rpc("velin_brief_get", {k: syncKey, n: 30}).then(function(r){
+      if (Array.isArray(r)) { briefs = r; briefAt = Date.now(); try { localStorage.setItem(BKEY, JSON.stringify(r)); } catch(e) {} }
+    }).catch(function(){}).then(function(){
+      briefLoading = false;
+      if (current() === "uvod") renderBrief();
+      if (current() === "briefing") renderBriefArchive();
+    });
+  }
+  function dayLabel(day){
+    var d = new Date(day + "T00:00:00"), t = new Date(); t.setHours(0, 0, 0, 0);
+    var diff = Math.round((t - d) / DAY);
+    if (diff === 0) return "dnes"; if (diff === 1) return "včera";
+    return d.toLocaleDateString("cs-CZ", {weekday:"long", day:"numeric", month:"numeric"});
+  }
+  function briefText(b){
+    var d = b.data || {}, out = ["Ranní AI briefing (" + b.day + ")", d.headline || ""];
+    (d.items || []).forEach(function(i, n){ out.push((n + 1) + ". " + i.title + " (" + (i.source || "") + ") " + (i.url || ""), "   Co: " + (i.what || ""), "   Pro nás: " + (i.why || "")); });
+    if (d.claude_code && d.claude_code.version) out.push("Claude Code " + d.claude_code.version + ": " + (d.claude_code.try || []).join("; "));
+    if ((d.try_today || []).length) out.push("Vyzkoušet dnes: " + d.try_today.join("; "));
+    return out.join("\n");
+  }
+  function briefHtml(b, compact){
+    var d = b.data || {}, items = d.items || [];
+    if (d.quiet || !items.length) return '<div class="eyebrow">Ranní briefing · ' + dayLabel(b.day) + '</div><h3 style="margin:6px 0 0">' + esc(d.headline || "Dnes nic zásadního.") + '</h3>';
+    var cc = d.claude_code && d.claude_code.version ? d.claude_code : null, tt = d.try_today || [];
+    return '<div class="eyebrow">Ranní briefing · ' + dayLabel(b.day) + '</div>' +
+      (d.headline ? '<h3 class="br-hl">' + esc(d.headline) + '</h3>' : "") +
+      '<ol class="br-items">' + items.slice(0, compact ? 5 : 12).map(function(i){
+        var u = safeUrl(i.url);
+        return '<li><div class="br-t">' + (u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(i.title) + '</a>' : esc(i.title)) + (i.source ? '<span class="br-src">' + esc(i.source) + '</span>' : "") + '</div>' +
+          (i.what ? '<p>' + esc(i.what) + '</p>' : "") + (i.why ? '<p class="br-why"><b>Pro nás:</b> ' + esc(i.why) + '</p>' : "") + '</li>';
+      }).join("") + '</ol>' +
+      (cc ? '<div class="br-box"><b>Claude Code ' + esc(cc.version) + '</b>' + ((cc.try || []).length ? '<ul>' + cc.try.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join("") + '</ul>' : "") + '</div>' : "") +
+      (tt.length ? '<div class="br-box try"><b>Vyzkoušej dnes</b><ul>' + tt.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join("") + '</ul></div>' : "") +
+      (d.ignore && !compact ? '<p class="small muted" style="margin:12px 0 0">Klidně ignoruj: ' + esc(d.ignore) + '</p>' : "");
+  }
+  function renderBrief(){
+    var el = $("#dBrief"); if (!el) return;
+    if (!syncConfigured() || !syncKey) {
+      el.innerHTML = '<div class="eyebrow">Ranní briefing</div><h3 style="margin:6px 0 6px">Briefing od Clauda se ukáže tady.</h3><p class="small muted" style="margin:0">Zapni v profilu synchronizaci. Briefing pak uvidíš na každém spárovaném zařízení.</p>';
+      return;
+    }
+    var b = briefs[0];
+    if (!b) { el.innerHTML = '<div class="eyebrow">Ranní briefing</div><h3 style="margin:6px 0 6px">Zatím tu žádný není.</h3><p class="small muted" style="margin:0">Objeví se po ranní naplánované úloze Denní AI radar (všední dny 7:30).</p>'; return; }
+    el.innerHTML = briefHtml(b, true) + '<div class="actions" style="margin-top:16px"><button class="btn primary small" type="button" id="brTalk">Probrat s Claudem</button><a class="btn ghost small" href="#briefing">Archiv briefingů</a></div>';
+    $("#brTalk").addEventListener("click", function(e){ copy(L(KDO, "", "Tady je můj dnešní AI briefing:", "", briefText(b), "", "Pomoz mi rozhodnout, čemu z toho dnes věnovat 30 minut a proč. Když je něco hype bez dopadu na nás, řekni to."), e.currentTarget); });
+  }
+  function renderBriefArchive(){
+    var el = $("#brList"); if (!el) return;
+    if (!syncConfigured() || !syncKey) { el.innerHTML = '<div class="rd-empty">Zapni v profilu synchronizaci a briefingy se tu objeví.</div>'; return; }
+    if (!briefs.length) { el.innerHTML = '<div class="rd-empty">' + (briefLoading ? "Načítám…" : "Zatím žádný briefing. První přijde po ranní naplánované úloze.") + '</div>'; return; }
+    el.innerHTML = briefs.map(function(b){ return '<div class="card br-card">' + briefHtml(b, false) + '</div>'; }).join("");
+  }
+  if (syncKey && syncConfigured()) loadBriefs(true);
 
 
   /* ===================================================================== PROFIL */
