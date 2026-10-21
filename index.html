@@ -2,7 +2,7 @@
 <html lang="cs">
 <head>
 <meta charset="utf-8">
-<meta name="velin-version" content="2026-10-21 10:44">
+<meta name="velin-version" content="2026-10-21 10:49">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#292929">
 <link rel="manifest" href="manifest.webmanifest">
@@ -826,13 +826,14 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
 .hero-grid{transition:gap .9s cubic-bezier(.65,0,.35,1)}
 .morph.alien .morph-tag,.morph.alien .morph-glow,.morph.alien .hint{transition:opacity .35s ease}
 .morph.leaving .morph-tag,.morph.leaving .morph-glow,.morph.leaving .hint{opacity:0!important}
-.morph.alien.go .scan{animation:scan 3s cubic-bezier(.45,0,.55,1) forwards}
+.morph.alien.go .scan{animation:scan 3.6s cubic-bezier(.45,0,.55,1) forwards}
 .fly-x{position:fixed;z-index:60;pointer-events:none;will-change:transform}
 .fly-y{will-change:transform}
 .fly-x .flyer{position:static;border-width:4px;will-change:transform;transform:translateZ(0)}
 .user-icon.landed{animation:landGlow 1s ease-out}
 @keyframes landGlow{0%{box-shadow:0 0 0 0 rgba(150,240,120,.75),0 10px 24px -8px rgba(41,41,41,.5)}100%{box-shadow:0 0 0 16px rgba(150,240,120,0),0 10px 24px -8px rgba(41,41,41,.5)}}
 .morph.alien.gone{max-width:0;max-height:0;margin:0;opacity:0;overflow:hidden;pointer-events:none}
+.user-icon{transition:opacity .45s cubic-bezier(.4,0,.2,1),transform .45s var(--ease),box-shadow .2s}
 </style>
 </head>
 <body>
@@ -2099,24 +2100,35 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
     var M = MUT, S = M.S, c = cv.getContext("2d");
     if (t <= 0) { c.putImageData(new ImageData(new Uint8ClampedArray(M.P), S, S), 0, 0); return; }
     if (t >= 1) { c.putImageData(new ImageData(new Uint8ClampedArray(M.A), S, S), 0, 0); return; }
-    var img = c.createImageData(S, S), out = img.data, P = M.P, A = M.A, O = M.O, DX = M.DX, DY = M.DY;
-    var e = 0.5 - 0.5 * Math.cos(Math.PI * cl(t)), W = 0.075, th = -W + e * (1 + 2 * W);
-    var bell = Math.sin(Math.PI * e), amp = bell * bell * 14, ampA = amp * 0.75;
-    var dark = 1 - 0.38 * cl(e * 1.6), glowK = Math.min(1, bell * 1.6);
-    var zoom = 1 + 0.07 * (1 - e) * (1 - e), half = S / 2;
+    var img = c.createImageData(S, S), out = img.data, P = M.P, A = M.A, O = M.O, DX = M.DX, DY = M.DY, lim = S - 1.001, S4 = S * 4;
+    // plynulý průběh: sinusový náběh i dojezd, široká měkká hrana mutace
+    var e = 0.5 - 0.5 * Math.cos(Math.PI * cl(t)), W = 0.12, th = -W + e * (1 + 2 * W);
+    var bell = Math.sin(Math.PI * e), amp = bell * bell * 9, ampA = amp * 0.7;
+    var dark = 1 - 0.34 * (0.5 - 0.5 * Math.cos(Math.PI * cl(e * 1.4))), glowK = bell * bell * 0.85;
+    var zoom = 1 + 0.06 * (1 - e) * (1 - e), half = S / 2;
+    var pr, pg, pb, ar, ag, ab;
     for (var y = 0, i = 0; y < S; y++) for (var x = 0; x < S; x++, i++) {
-      var d = (th - O[i]) / W;
+      var d = (th - O[i]) / W, j = i * 4;
+      // fotka: bilineární vzorkování s tekutým posunem
       var px = x + DX[i] * amp, py = y + DY[i] * amp;
-      px = px < 0 ? 0 : px > S - 1 ? S - 1 : px; py = py < 0 ? 0 : py > S - 1 ? S - 1 : py;
-      var pi = ((py | 0) * S + (px | 0)) * 4, j = i * 4;
-      var pr = P[pi] * dark, pg = P[pi + 1] * dark, pb = P[pi + 2] * dark;
+      px = px < 0 ? 0 : px > lim ? lim : px; py = py < 0 ? 0 : py > lim ? lim : py;
+      var x0 = px | 0, y0 = py | 0, fx = px - x0, fy = py - y0, k = (y0 * S + x0) * 4;
+      var w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+      pr = (P[k] * w00 + P[k + 4] * w10 + P[k + S4] * w01 + P[k + S4 + 4] * w11) * dark;
+      pg = (P[k + 1] * w00 + P[k + 5] * w10 + P[k + S4 + 1] * w01 + P[k + S4 + 5] * w11) * dark;
+      pb = (P[k + 2] * w00 + P[k + 6] * w10 + P[k + S4 + 2] * w01 + P[k + S4 + 6] * w11) * dark;
       if (d <= 0) { out[j] = pr; out[j + 1] = pg; out[j + 2] = pb; out[j + 3] = 255; continue; }
-      var ax = half + (x - half) / zoom - DX[i] * ampA, ay = half + (y - half) / zoom - DY[i] * ampA;
-      ax = ax < 0 ? 0 : ax > S - 1 ? S - 1 : ax; ay = ay < 0 ? 0 : ay > S - 1 ? S - 1 : ay;
-      var ai = ((ay | 0) * S + (ax | 0)) * 4;
-      var m = d >= 1 ? 1 : d * d * (3 - 2 * d);
-      var r = pr + (A[ai] - pr) * m, g = pg + (A[ai + 1] - pg) * m, b = pb + (A[ai + 2] - pb) * m;
-      if (d < 1.5) { var q = (d - 0.5) * 2.8, glow = Math.exp(-q * q) * glowK; r += 95 * glow; g += 225 * glow; b += 70 * glow; }
+      // vetřelec: stejné vzorkování, protisměrný posun a lehké dosednutí z přiblížení
+      var qx = half + (x - half) / zoom - DX[i] * ampA, qy = half + (y - half) / zoom - DY[i] * ampA;
+      qx = qx < 0 ? 0 : qx > lim ? lim : qx; qy = qy < 0 ? 0 : qy > lim ? lim : qy;
+      x0 = qx | 0; y0 = qy | 0; fx = qx - x0; fy = qy - y0; k = (y0 * S + x0) * 4;
+      w00 = (1 - fx) * (1 - fy); w10 = fx * (1 - fy); w01 = (1 - fx) * fy; w11 = fx * fy;
+      ar = A[k] * w00 + A[k + 4] * w10 + A[k + S4] * w01 + A[k + S4 + 4] * w11;
+      ag = A[k + 1] * w00 + A[k + 5] * w10 + A[k + S4 + 1] * w01 + A[k + S4 + 5] * w11;
+      ab = A[k + 2] * w00 + A[k + 6] * w10 + A[k + S4 + 2] * w01 + A[k + S4 + 6] * w11;
+      var m = d >= 1 ? 1 : d * d * d * (d * (d * 6 - 15) + 10);
+      var r = pr + (ar - pr) * m, g = pg + (ag - pg) * m, b = pb + (ab - pb) * m;
+      if (d < 1.8) { var q = (d - 0.45) * 2.0, glow = Math.exp(-q * q) * glowK; r += 80 * glow; g += 200 * glow; b += 60 * glow; }
       out[j] = r; out[j + 1] = g; out[j + 2] = b; out[j + 3] = 255;
     }
     c.putImageData(img, 0, 0);
@@ -2136,16 +2148,16 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
     fl.innerHTML = '<img src="' + AI_URL + '" alt="">';
     fy.appendChild(fl); fx.appendChild(fy); document.body.appendChild(fx);
     pic.style.visibility = "hidden";
-    var dx = (b.left + b.width / 2) - (a.left + a.width / 2), dy = (b.top + b.height / 2) - (a.top + a.height / 2), sc = bw / a.width, D = 1150;
-    var ax = fx.animate([{transform:"translateX(0)"}, {transform:"translateX(" + dx + "px)"}], {duration:D, easing:"cubic-bezier(.55,0,.2,1)", fill:"forwards"});
-    fy.animate([{transform:"translateY(0)"}, {transform:"translateY(" + dy + "px)"}], {duration:D, easing:"cubic-bezier(.25,0,.15,1)", fill:"forwards"});
-    fl.animate([{transform:"scale(1)"}, {transform:"scale(" + sc + ")"}], {duration:D, easing:"cubic-bezier(.5,0,.2,1)", fill:"forwards"});
+    var dx = (b.left + b.width / 2) - (a.left + a.width / 2), dy = (b.top + b.height / 2) - (a.top + a.height / 2), sc = bw / a.width, D = 1350;
+    var ax = fx.animate([{transform:"translateX(0)"}, {transform:"translateX(" + dx + "px)"}], {duration:D, easing:"cubic-bezier(.6,0,.25,1)", fill:"forwards"});
+    fy.animate([{transform:"translateY(0)"}, {transform:"translateY(" + dy + "px)"}], {duration:D, easing:"cubic-bezier(.33,0,.2,1)", fill:"forwards"});
+    fl.animate([{transform:"scale(1)"}, {transform:"scale(" + sc + ")"}], {duration:D, easing:"cubic-bezier(.5,0,.25,1)", fill:"forwards"});
     m.classList.add("leaving");
     var landed = false;
     function land(){
       if (landed) return; landed = true;
       u.style.opacity = "";
-      fx.animate([{opacity:1}, {opacity:0}], {duration:240, easing:"ease-out", fill:"forwards"}).onfinish = function(){ fx.remove(); };
+      fx.animate([{opacity:1}, {opacity:0}], {duration:320, easing:"cubic-bezier(.4,0,.2,1)", fill:"forwards"}).onfinish = function(){ fx.remove(); };
       m.classList.add("gone"); m.classList.remove("leaving"); pic.style.visibility = "";
       u.classList.remove("landed"); void u.offsetWidth; u.classList.add("landed");
     }
@@ -2159,7 +2171,7 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
     drawMutation(cv, 0);
     timers.push(setTimeout(function(){
       m.classList.add("go");
-      var t0 = performance.now(), D = 3000;
+      var t0 = performance.now(), D = 3600;
       (function step(now){
         var t = cl((now - t0) / D); drawMutation(cv, t);
         if (t < 1) { rafId = requestAnimationFrame(step); return; }
